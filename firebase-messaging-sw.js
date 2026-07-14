@@ -22,9 +22,14 @@ messaging.onBackgroundMessage((payload) => {
   // We ONLY show a manual notification here if the payload contains raw 'data' instead of 'notification'.
   if (!payload.notification && payload.data) {
     const notificationTitle = payload.data.title || 'New Update!';
+    
+    // Dynamically build absolute URLs for the icon and badge
+    const absoluteIconUrl = self.location.origin + '/favicon.ico';
+    
     const notificationOptions = {
       body: payload.data.body || 'Check out the latest on Wenxi Market.',
-      icon: '/favicon.ico',
+      icon: absoluteIconUrl, // Loaded with absolute URL so the OS can find it
+      badge: absoluteIconUrl, // Small monochrome icon for the Android status bar
       data: {
         click_action: payload.data.click_action || '/'
       }
