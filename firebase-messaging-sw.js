@@ -14,24 +14,24 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
+// Your verified secure favicon link
+const FAVICON_URL = "https://www.wenximarket.com/favicon.ico";
+
 // 1. Handle background notifications (NO DUPLICATES)
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
   
-  // Firebase will automatically show the payload.notification if it exists.
+  // Firebase automatically shows the payload.notification if it exists.
   // We ONLY show a manual notification here if the payload contains raw 'data' instead of 'notification'.
   if (!payload.notification && payload.data) {
     const notificationTitle = payload.data.title || 'New Update!';
     
-    // Dynamically build absolute URLs for the icon and badge
-    const absoluteIconUrl = self.location.origin + '/favicon.ico';
-    
     const notificationOptions = {
       body: payload.data.body || 'Check out the latest on Wenxi Market.',
-      icon: absoluteIconUrl, // Loaded with absolute URL so the OS can find it
-      badge: absoluteIconUrl, // Small monochrome icon for the Android status bar
+      icon: FAVICON_URL, // Hardcoded absolute secure URL
+      badge: FAVICON_URL, // Small monochrome notification bar icon on Android
       data: {
-        click_action: payload.data.click_action || '/'
+        click_action: payload.data.click_action || 'https://www.wenximarket.com/'
       }
     };
     self.registration.showNotification(notificationTitle, notificationOptions);
@@ -44,10 +44,10 @@ self.addEventListener('notificationclick', function(event) {
   event.notification.close();
 
   // Determine the landing page URL (fallback to homepage if not sent in payload)
-  let targetUrl = '/';
+  let targetUrl = 'https://www.wenximarket.com/';
   if (event.notification.data && event.notification.data.click_action) {
     targetUrl = event.notification.data.click_action;
-  } else if (event.notification.clickAction) { // Some legacy browsers use this structure
+  } else if (event.notification.clickAction) { // Legacy structure fallback
     targetUrl = event.notification.clickAction;
   }
 
