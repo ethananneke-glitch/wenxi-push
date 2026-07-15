@@ -6,20 +6,21 @@ self.addEventListener('notificationclick', function(event) {
   console.log('[Service Worker] Action:', event.action);
   console.log('[Service Worker] Notification data:', event.notification.data);
 
-  // Close the notification pop-up
+  // Close the notification
   event.notification.close();
 
   // Get data from notification
   const data = event.notification.data || {};
   const action = event.action;
   
-  // Build target URL based on action
   let targetUrl = 'https://www.wenximarket.com/';
   
+  // Handle different actions
   if (action === 'reply') {
     // If it's a message notification, go to chat
     if (data.chatId) {
       targetUrl = `/p/chats.html?id=${data.chatId}`;
+      console.log('[Service Worker] Reply action with chatId:', data.chatId);
     } 
     // If it's an order notification, go to the order page
     else if (data.orderId) {
@@ -28,9 +29,9 @@ self.addEventListener('notificationclick', function(event) {
       } else {
         targetUrl = `/p/myorders.html?order=${data.orderId}`;
       }
+      console.log('[Service Worker] Reply action with orderId:', data.orderId);
     } else {
-      // Fallback
-      targetUrl = 'https://www.wenximarket.com/';
+      console.log('[Service Worker] Reply action - no chatId or orderId found');
     }
   } 
   else if (action === 'view_order') {
@@ -41,6 +42,7 @@ self.addEventListener('notificationclick', function(event) {
       } else {
         targetUrl = `/p/myorders.html?order=${data.orderId}`;
       }
+      console.log('[Service Worker] View Order action:', data.orderId);
     }
   }
   else if (action === 'view') {
@@ -62,7 +64,10 @@ self.addEventListener('notificationclick', function(event) {
   else {
     // No specific action - use click_action from data or default
     targetUrl = data.click_action || 'https://www.wenximarket.com/';
+    console.log('[Service Worker] Default action - using click_action:', targetUrl);
   }
+
+  console.log('[Service Worker] Final target URL:', targetUrl);
 
   // Open the tab or focus on an existing one
   event.waitUntil(
@@ -75,11 +80,13 @@ self.addEventListener('notificationclick', function(event) {
           const targetUrlFull = new URL(targetUrl, self.location.origin).href;
           
           if (clientUrl === targetUrlFull && 'focus' in client) {
+            console.log('[Service Worker] Focusing existing tab:', clientUrl);
             return client.focus();
           }
         }
         // If no existing tab, open a new one
         if (clients.openWindow) {
+          console.log('[Service Worker] Opening new window:', targetUrl);
           return clients.openWindow(targetUrl);
         }
       })
@@ -105,7 +112,7 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 const FAVICON_URL = "https://www.wenximarket.com/favicon.ico";
 
-// Handle background notifications
+// Handle background messages
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Background message payload: ', payload);
   
