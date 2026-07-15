@@ -202,4 +202,3 @@ messaging.onBackgroundMessage(function(payload) {
 
 }); how many windows they will fire when a single message is arrived? 
 
-
