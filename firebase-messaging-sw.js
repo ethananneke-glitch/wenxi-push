@@ -3,60 +3,82 @@
 // ==========================================
 self.addEventListener('notificationclick', function(event) {
   console.log('[Service Worker] Notification click detected!');
-  
+  console.log('[Service Worker] Action:', event.action);
+  console.log('[Service Worker] Notification data:', event.notification.data);
+
   // Close the notification pop-up
   event.notification.close();
 
-  // Retrieve the target link from payload data
+  // Get data from notification
+  const data = event.notification.data || {};
+  const action = event.action;
+  
+  // Build target URL based on action
   let targetUrl = 'https://www.wenximarket.com/';
-  if (event.notification.data && event.notification.data.click_action) {
-    targetUrl = event.notification.data.click_action;
-  } else if (event.notification.clickAction) { 
-    targetUrl = event.notification.clickAction;
-  }
-
-  // Handle action buttons (View Order, Reply, etc.)
-  if (event.action) {
-    const data = event.notification.data || {};
-    const orderId = data.orderId || '';
-    const chatId = data.chatId || '';
-    const type = data.type || '';
-
-    switch (event.action) {
-      case 'view_order':
-        if (type === 'order') {
-          targetUrl = `/p/myshoporders.html?order=${orderId}`;
-        } else {
-          targetUrl = `/p/myorders.html?order=${orderId}`;
-        }
-        break;
-      case 'reply':
-        if (chatId) {
-          targetUrl = `/p/chats.html?id=${chatId}`;
-        } else if (orderId) {
-          targetUrl = `/p/myorders.html?order=${orderId}`;
-        }
-        break;
-      case 'dismiss':
-        return;
+  
+  if (action === 'reply') {
+    // If it's a message notification, go to chat
+    if (data.chatId) {
+      targetUrl = `/p/chats.html?id=${data.chatId}`;
+    } 
+    // If it's an order notification, go to the order page
+    else if (data.orderId) {
+      if (data.type === 'order') {
+        targetUrl = `/p/myshoporders.html?order=${data.orderId}`;
+      } else {
+        targetUrl = `/p/myorders.html?order=${data.orderId}`;
+      }
+    } else {
+      // Fallback
+      targetUrl = 'https://www.wenximarket.com/';
+    }
+  } 
+  else if (action === 'view_order') {
+    // View Order button
+    if (data.orderId) {
+      if (data.type === 'order') {
+        targetUrl = `/p/myshoporders.html?order=${data.orderId}`;
+      } else {
+        targetUrl = `/p/myorders.html?order=${data.orderId}`;
+      }
     }
   }
-
-  // Normalize URLs to prevent mismatches
-  const normalizedTarget = new URL(targetUrl, self.location.origin).href;
+  else if (action === 'view') {
+    // Default view action
+    if (data.chatId) {
+      targetUrl = `/p/chats.html?id=${data.chatId}`;
+    } else if (data.orderId) {
+      if (data.type === 'order') {
+        targetUrl = `/p/myshoporders.html?order=${data.orderId}`;
+      } else {
+        targetUrl = `/p/myorders.html?order=${data.orderId}`;
+      }
+    }
+  }
+  else if (action === 'dismiss') {
+    // Just close the notification
+    return;
+  }
+  else {
+    // No specific action - use click_action from data or default
+    targetUrl = data.click_action || 'https://www.wenximarket.com/';
+  }
 
   // Open the tab or focus on an existing one
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
       .then(function(clientList) {
+        // Try to find an existing tab with the same URL
         for (let i = 0; i < clientList.length; i++) {
           const client = clientList[i];
           const clientUrl = new URL(client.url, self.location.origin).href;
+          const targetUrlFull = new URL(targetUrl, self.location.origin).href;
           
-          if (clientUrl === normalizedTarget && 'focus' in client) {
+          if (clientUrl === targetUrlFull && 'focus' in client) {
             return client.focus();
           }
         }
+        // If no existing tab, open a new one
         if (clients.openWindow) {
           return clients.openWindow(targetUrl);
         }
@@ -87,7 +109,6 @@ const FAVICON_URL = "https://www.wenximarket.com/favicon.ico";
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Background message payload: ', payload);
   
-  // Get notification data from payload
   const notification = payload.notification || {};
   const data = payload.data || {};
   
@@ -97,18 +118,26 @@ messaging.onBackgroundMessage((payload) => {
     icon: notification.icon || FAVICON_URL,
     badge: notification.badge || FAVICON_URL,
     data: {
-      click_action: data.click_action || data.orderId ? `/p/myorders.html?order=${data.orderId}` : 'https://www.wenximarket.com/',
-      orderId: data.orderId || '',
+      click_action: data.click_action || 'https://www.wenximarket.com/',
       chatId: data.chatId || '',
+      orderId: data.orderId || '',
       type: data.type || ''
     },
     actions: [
-      { action: 'view_order', title: '📦 View Order' },
-      { action: 'reply', title: '💬 Reply' }
+      { action: 'reply', title: '💬 Reply' },
+      { action: 'dismiss', title: '✕ Dismiss' }
     ],
     requireInteraction: true,
     vibrate: [200, 100, 200]
   };
+
+  // If it's an order notification, add View Order button
+  if (data.type === 'order' || data.type === 'order_update') {
+    notificationOptions.actions = [
+      { action: 'view_order', title: '📦 View Order' },
+      { action: 'reply', title: '💬 Reply' }
+    ];
+  }
 
   self.registration.showNotification(notificationTitle, notificationOptions);
 });
