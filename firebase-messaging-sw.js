@@ -200,5 +200,4 @@ messaging.onBackgroundMessage(function(payload) {
 
   self.registration.showNotification(title, options);
 
-}); how many windows they will fire when a single message is arrived? 
-
+});
