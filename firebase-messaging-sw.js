@@ -15,7 +15,34 @@ self.addEventListener('notificationclick', function(event) {
     targetUrl = event.notification.clickAction;
   }
 
-  // Normalize URLs to prevent mismatches (e.g., matching "/" with "/index.html")
+  // Handle action buttons (View Order, Reply, etc.)
+  if (event.action) {
+    const data = event.notification.data || {};
+    const orderId = data.orderId || '';
+    const chatId = data.chatId || '';
+    const type = data.type || '';
+
+    switch (event.action) {
+      case 'view_order':
+        if (type === 'order') {
+          targetUrl = `/p/myshoporders.html?order=${orderId}`;
+        } else {
+          targetUrl = `/p/myorders.html?order=${orderId}`;
+        }
+        break;
+      case 'reply':
+        if (chatId) {
+          targetUrl = `/p/chats.html?id=${chatId}`;
+        } else if (orderId) {
+          targetUrl = `/p/myorders.html?order=${orderId}`;
+        }
+        break;
+      case 'dismiss':
+        return;
+    }
+  }
+
+  // Normalize URLs to prevent mismatches
   const normalizedTarget = new URL(targetUrl, self.location.origin).href;
 
   // Open the tab or focus on an existing one
@@ -60,16 +87,28 @@ const FAVICON_URL = "https://www.wenximarket.com/favicon.ico";
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Background message payload: ', payload);
   
-  if (!payload.notification && payload.data) {
-    const notificationTitle = payload.data.title || 'New Update!';
-    const notificationOptions = {
-      body: payload.data.body || 'Check out the latest on Wenxi Market.',
-      icon: FAVICON_URL,
-      badge: FAVICON_URL,
-      data: {
-        click_action: payload.data.click_action || 'https://www.wenximarket.com/'
-      }
-    };
-    self.registration.showNotification(notificationTitle, notificationOptions);
-  }
+  // Get notification data from payload
+  const notification = payload.notification || {};
+  const data = payload.data || {};
+  
+  const notificationTitle = notification.title || data.title || 'New Update!';
+  const notificationOptions = {
+    body: notification.body || data.body || 'Check out the latest on Wenxi Market.',
+    icon: notification.icon || FAVICON_URL,
+    badge: notification.badge || FAVICON_URL,
+    data: {
+      click_action: data.click_action || data.orderId ? `/p/myorders.html?order=${data.orderId}` : 'https://www.wenximarket.com/',
+      orderId: data.orderId || '',
+      chatId: data.chatId || '',
+      type: data.type || ''
+    },
+    actions: [
+      { action: 'view_order', title: '📦 View Order' },
+      { action: 'reply', title: '💬 Reply' }
+    ],
+    requireInteraction: true,
+    vibrate: [200, 100, 200]
+  };
+
+  self.registration.showNotification(notificationTitle, notificationOptions);
 });
