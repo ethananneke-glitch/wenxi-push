@@ -1,11 +1,11 @@
 // ==========================================
-// 1. CLICK LISTENER MUST GO FIRST!
+// 1. CLICK LISTENER
 // ==========================================
 self.addEventListener('notificationclick', function(event) {
-  console.log('[Service Worker] Notification click detected!');
+  console.log('[Service Worker] ===== NOTIFICATION CLICK =====');
   console.log('[Service Worker] Action:', event.action);
-  console.log('[Service Worker] Notification data:', event.notification.data);
-
+  console.log('[Service Worker] Notification data:', JSON.stringify(event.notification.data));
+  
   // Close the notification
   event.notification.close();
 
@@ -13,80 +13,64 @@ self.addEventListener('notificationclick', function(event) {
   const data = event.notification.data || {};
   const action = event.action;
   
+  console.log('[Service Worker] Parsed data:', JSON.stringify(data));
+  console.log('[Service Worker] chatId:', data.chatId);
+  console.log('[Service Worker] orderId:', data.orderId);
+  console.log('[Service Worker] type:', data.type);
+  console.log('[Service Worker] click_action:', data.click_action);
+  
   let targetUrl = 'https://www.wenximarket.com/';
   
-  // Handle different actions
   if (action === 'reply') {
-    // If it's a message notification, go to chat
     if (data.chatId) {
       targetUrl = `/p/chats.html?id=${data.chatId}`;
-      console.log('[Service Worker] Reply action with chatId:', data.chatId);
-    } 
-    // If it's an order notification, go to the order page
-    else if (data.orderId) {
-      if (data.type === 'order') {
-        targetUrl = `/p/myshoporders.html?order=${data.orderId}`;
-      } else {
-        targetUrl = `/p/myorders.html?order=${data.orderId}`;
-      }
-      console.log('[Service Worker] Reply action with orderId:', data.orderId);
-    } else {
-      console.log('[Service Worker] Reply action - no chatId or orderId found');
-    }
-  } 
-  else if (action === 'view_order') {
-    // View Order button
-    if (data.orderId) {
-      if (data.type === 'order') {
-        targetUrl = `/p/myshoporders.html?order=${data.orderId}`;
-      } else {
-        targetUrl = `/p/myorders.html?order=${data.orderId}`;
-      }
-      console.log('[Service Worker] View Order action:', data.orderId);
-    }
-  }
-  else if (action === 'view') {
-    // Default view action
-    if (data.chatId) {
-      targetUrl = `/p/chats.html?id=${data.chatId}`;
+      console.log('[Service Worker] ✅ REPLY → CHAT:', targetUrl);
     } else if (data.orderId) {
       if (data.type === 'order') {
         targetUrl = `/p/myshoporders.html?order=${data.orderId}`;
       } else {
         targetUrl = `/p/myorders.html?order=${data.orderId}`;
       }
+      console.log('[Service Worker] ✅ REPLY → ORDER:', targetUrl);
+    } else {
+      console.log('[Service Worker] ❌ No chatId or orderId found!');
+      targetUrl = data.click_action || 'https://www.wenximarket.com/';
     }
-  }
-  else if (action === 'dismiss') {
-    // Just close the notification
+  } else if (action === 'view_order') {
+    if (data.orderId) {
+      if (data.type === 'order') {
+        targetUrl = `/p/myshoporders.html?order=${data.orderId}`;
+      } else {
+        targetUrl = `/p/myorders.html?order=${data.orderId}`;
+      }
+      console.log('[Service Worker] ✅ VIEW ORDER:', targetUrl);
+    }
+  } else if (action === 'dismiss') {
+    console.log('[Service Worker] Dismissed');
     return;
-  }
-  else {
-    // No specific action - use click_action from data or default
+  } else {
+    // No action - use click_action
     targetUrl = data.click_action || 'https://www.wenximarket.com/';
-    console.log('[Service Worker] Default action - using click_action:', targetUrl);
+    console.log('[Service Worker] Default action:', targetUrl);
   }
 
-  console.log('[Service Worker] Final target URL:', targetUrl);
+  console.log('[Service Worker] Final URL:', targetUrl);
 
-  // Open the tab or focus on an existing one
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
       .then(function(clientList) {
-        // Try to find an existing tab with the same URL
         for (let i = 0; i < clientList.length; i++) {
           const client = clientList[i];
           const clientUrl = new URL(client.url, self.location.origin).href;
           const targetUrlFull = new URL(targetUrl, self.location.origin).href;
           
           if (clientUrl === targetUrlFull && 'focus' in client) {
-            console.log('[Service Worker] Focusing existing tab:', clientUrl);
+            console.log('[Service Worker] Focusing existing tab');
             return client.focus();
           }
         }
-        // If no existing tab, open a new one
         if (clients.openWindow) {
-          console.log('[Service Worker] Opening new window:', targetUrl);
+          console.log('[Service Worker] Opening new window');
           return clients.openWindow(targetUrl);
         }
       })
@@ -94,12 +78,11 @@ self.addEventListener('notificationclick', function(event) {
 });
 
 // ==========================================
-// 2. NOW SAFELY IMPORT FIREBASE
+// 2. IMPORT FIREBASE
 // ==========================================
 importScripts('https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.14.0/firebase-messaging-compat.js');
 
-// Initialize the Firebase app
 firebase.initializeApp({
   apiKey: "AIzaSyDTMzML8lwOLKKEcyZWCJipia_cAednd94",
   authDomain: "wenxi-market.firebaseapp.com",
@@ -112,12 +95,16 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 const FAVICON_URL = "https://www.wenximarket.com/favicon.ico";
 
-// Handle background messages
 messaging.onBackgroundMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] Background message payload: ', payload);
+  console.log('[Service Worker] ===== BACKGROUND MESSAGE =====');
+  console.log('[Service Worker] Payload:', JSON.stringify(payload));
   
   const notification = payload.notification || {};
   const data = payload.data || {};
+  
+  console.log('[Service Worker] Received data:', JSON.stringify(data));
+  console.log('[Service Worker] chatId:', data.chatId);
+  console.log('[Service Worker] orderId:', data.orderId);
   
   const notificationTitle = notification.title || data.title || 'New Update!';
   const notificationOptions = {
@@ -125,10 +112,10 @@ messaging.onBackgroundMessage((payload) => {
     icon: notification.icon || FAVICON_URL,
     badge: notification.badge || FAVICON_URL,
     data: {
-      click_action: data.click_action || 'https://www.wenximarket.com/',
       chatId: data.chatId || '',
       orderId: data.orderId || '',
-      type: data.type || ''
+      type: data.type || '',
+      click_action: data.click_action || 'https://www.wenximarket.com/'
     },
     actions: [
       { action: 'reply', title: '💬 Reply' },
@@ -138,7 +125,6 @@ messaging.onBackgroundMessage((payload) => {
     vibrate: [200, 100, 200]
   };
 
-  // If it's an order notification, add View Order button
   if (data.type === 'order' || data.type === 'order_update') {
     notificationOptions.actions = [
       { action: 'view_order', title: '📦 View Order' },
@@ -146,5 +132,6 @@ messaging.onBackgroundMessage((payload) => {
     ];
   }
 
+  console.log('[Service Worker] Notification options:', JSON.stringify(notificationOptions));
   self.registration.showNotification(notificationTitle, notificationOptions);
 });
