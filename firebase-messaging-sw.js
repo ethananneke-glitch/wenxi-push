@@ -10,16 +10,11 @@ self.addEventListener('notificationclick', function(event) {
   
   let targetUrl = 'https://www.wenximarket.com/';
   
-  if (action === 'reply') {
-    if (data.chatId) {
-      targetUrl = `/p/chats.html?id=${data.chatId}`;
-    } else if (data.orderId) {
-      targetUrl = data.type === 'order' 
-        ? `/p/myshoporders.html?order=${data.orderId}`
-        : `/p/myorders.html?order=${data.orderId}`;
-    }
-  } else if (action === 'view_order' && data.orderId) {
-    targetUrl = data.type === 'order'
+  // Clean, consolidated URL routing logic
+  if (action === 'reply' && data.chatId) {
+    targetUrl = `/p/chats.html?id=${data.chatId}`;
+  } else if ((action === 'reply' || action === 'view_order') && data.orderId) {
+    targetUrl = data.type === 'order' 
       ? `/p/myshoporders.html?order=${data.orderId}`
       : `/p/myorders.html?order=${data.orderId}`;
   } else {
@@ -63,12 +58,12 @@ const messaging = firebase.messaging();
 const FAVICON_URL = "https://www.wenximarket.com/favicon.ico";
 
 // ==========================================
-// 3. BACKGROUND MESSAGE HANDLER (ONLY ONCE)
+// 3. BACKGROUND MESSAGE HANDLER
 // ==========================================
 messaging.onBackgroundMessage(function(payload) {
   console.log('[SW] Background message received:', JSON.stringify(payload));
   
-  // Since we use approach A (Data-Only), all variables reside in "data"
+  // All variables reside in "data" (Approach A: Data-Only Payload)
   const data = payload.data || {};
   
   const title = data.title || 'New Update!';
@@ -98,6 +93,6 @@ messaging.onBackgroundMessage(function(payload) {
     ];
   }
   
-  // ✅ Triggers exactly ONE rich, customized notification
+  // ✅ Returning the Promise is vital to let FCM tie into event.waitUntil internally!
   return self.registration.showNotification(title, options);
 });
