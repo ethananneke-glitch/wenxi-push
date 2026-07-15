@@ -66,16 +66,16 @@ const FAVICON_URL = "https://www.wenximarket.com/favicon.ico";
 // 3. BACKGROUND MESSAGE HANDLER (ONLY ONCE)
 // ==========================================
 messaging.onBackgroundMessage(function(payload) {
-  console.log('[SW] Background message:', JSON.stringify(payload));
+  console.log('[SW] Background message received:', JSON.stringify(payload));
   
-  const notification = payload.notification || {};
+  // Since we use approach A (Data-Only), all variables reside in "data"
   const data = payload.data || {};
   
-  const title = notification.title || data.title || 'New Update!';
+  const title = data.title || 'New Update!';
   const options = {
-    body: notification.body || data.body || 'Check out the latest on Wenxi Market.',
-    icon: notification.icon || FAVICON_URL,
-    badge: notification.badge || FAVICON_URL,
+    body: data.body || 'Check out the latest on Wenxi Market.',
+    icon: data.icon || FAVICON_URL,
+    badge: FAVICON_URL,
     data: {
       chatId: data.chatId || '',
       orderId: data.orderId || '',
@@ -83,13 +83,14 @@ messaging.onBackgroundMessage(function(payload) {
       click_action: data.click_action || 'https://www.wenximarket.com/'
     },
     actions: [
-      { action: 'reply', title: '💬 Reply' },    // ✅ CORRECT - has emoji
-      { action: 'dismiss', title: '✕ Dismiss' } // ✅ CORRECT - has emoji
+      { action: 'reply', title: '💬 Reply' },
+      { action: 'dismiss', title: '✕ Dismiss' }
     ],
     requireInteraction: true,
     vibrate: [200, 100, 200]
   };
   
+  // Adjust actions based on order patterns
   if (data.type === 'order' || data.type === 'order_update') {
     options.actions = [
       { action: 'view_order', title: '📦 View Order' },
@@ -97,6 +98,6 @@ messaging.onBackgroundMessage(function(payload) {
     ];
   }
   
-  // ✅ ONLY ONE notification - the good one
-  self.registration.showNotification(title, options);
+  // ✅ Triggers exactly ONE rich, customized notification
+  return self.registration.showNotification(title, options);
 });
